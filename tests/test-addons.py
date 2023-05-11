@@ -29,6 +29,7 @@ from utils import (
     microk8s_disable,
     microk8s_reset,
     kubectl,
+    is_multinode,
 )
 from subprocess import CalledProcessError, check_call
 
@@ -41,8 +42,31 @@ class TestAddons(object):
         """
         Clean up after a test
         """
-        yield
-        microk8s_reset()
+        if is_multinode():
+            print("is mutinode")
+            yield
+            return
+        else:
+            print("isn't multinode")
+            yield
+            microk8s_reset()
+
+    @pytest.fixture(scope="session", autouse=True)
+    def lable_node(self):
+        """
+        Label the node on which the tests run.
+        """
+        node_name=kubectl(f'get node -o jsonpath=\'{{.items[0].metadata.name}}\'')
+        node_name = node_name.replace("'", "")
+        kubectl(f'label node {node_name} pvc-node-name=hostpath-test-node')
+        NODE_NAME=node_name
+        # TODO: Remove labels after use!!
+        # yield
+        # node_name=kubectl(f'get node -o jsonpath=\'{{.items[0].metadata.name}}\'')
+        # node_name = node_name.replace("'", "")
+        # kubectl(f'label node {node_name} pvc-node-name-')
+        print("label_node fixture run!!!!!!")
+
 
     def test_invalid_addon(self):
         p = subprocess.run(["microk8s", "enable", "foo"])
@@ -109,6 +133,7 @@ class TestAddons(object):
         Sets up and tests dashboard, dns, storage, registry, ingress, metrics server.
 
         """
+        NODE_NAME=vm1
         ip_ranges = "8.8.8.8,1.1.1.1"
         print("Enabling DNS")
         microk8s_disable("dns")
@@ -215,7 +240,6 @@ class TestAddons(object):
         validate_observability()
         print("Disabling observability")
         microk8s_disable("observability")
-        microk8s_reset()
 
     def test_rbac_addon(self):
         """
@@ -285,7 +309,8 @@ class TestAddons(object):
         microk8s_enable("dns")
         microk8s_enable("ingress")
         microk8s_enable("cert-manager")
-        microk8s_enable("host-access:ip=100.100.100.100")
+        microk8s_enable("metallb:10.64.140.43-10.64.140.49")
+        # microk8s_enable("host-access:ip=100.100.100.100")
 
         print("Validating cert-manager")
         validate_cert_manager()
@@ -293,7 +318,7 @@ class TestAddons(object):
         print("Disabling cert-manager")
         microk8s_disable("ingress")
         microk8s_disable("cert-manager")
-        microk8s_disable("host-access")
+        # microk8s_disable("host-access")
 
     def test_minio_addon(self):
         """
