@@ -43,29 +43,28 @@ class TestAddons(object):
         Clean up after a test
         """
         if is_multinode():
-            print("is mutinode")
             yield
             return
         else:
-            print("isn't multinode")
             yield
             microk8s_reset()
 
-    @pytest.fixture(scope="session", autouse=True)
-    def lable_node(self):
-        """
-        Label the node on which the tests run.
-        """
-        node_name=kubectl(f'get node -o jsonpath=\'{{.items[0].metadata.name}}\'')
-        node_name = node_name.replace("'", "")
-        kubectl(f'label node {node_name} pvc-node-name=hostpath-test-node')
-        NODE_NAME=node_name
-        # TODO: Remove labels after use!!
-        # yield
-        # node_name=kubectl(f'get node -o jsonpath=\'{{.items[0].metadata.name}}\'')
-        # node_name = node_name.replace("'", "")
-        # kubectl(f'label node {node_name} pvc-node-name-')
-        print("label_node fixture run!!!!!!")
+    # @pytest.fixture(scope="session", autouse=True)
+    # def lable_node(self):
+    #     """
+    #     Label the node on which the tests run.
+    #     """
+    #     node_name = kubectl(f'get node -o jsonpath=\'{{.items[0].metadata.name}}\'')
+    #     node_name = node_name.replace("'", "")
+    #     kubectl(f'label node {node_name} pvc-node-name=hostpath-test-node')
+    #     os.environ["NODE_NAME"] = node_name
+    #     print(node_name)
+    #     # TODO: Remove labels after use!!
+    #     yield
+    #     # node_name=kubectl(f'get node -o jsonpath=\'{{.items[0].metadata.name}}\'')
+    #     # node_name = node_name.replace("'", "")
+    #     # kubectl(f'label node {node_name} pvc-node-name-')
+    #     # print("label_node fixture run!!!!!!")
 
 
     def test_invalid_addon(self):
@@ -133,7 +132,14 @@ class TestAddons(object):
         Sets up and tests dashboard, dns, storage, registry, ingress, metrics server.
 
         """
-        NODE_NAME=vm1
+        # Set labels
+        node_name = kubectl(f'get node -o jsonpath=\'{{.items[0].metadata.name}}\'')
+        node_name = node_name.replace("'", "")
+        kubectl(f'label node {node_name} pvc-node-name=hostpath-test-node')
+        # os.environ["NODE_NAME"] = node_name
+        print(node_name)
+
+        # Run tests
         ip_ranges = "8.8.8.8,1.1.1.1"
         print("Enabling DNS")
         microk8s_disable("dns")
@@ -190,6 +196,9 @@ class TestAddons(object):
         print("Disabling DNS")
         microk8s_disable("dns")
         """
+
+        # Remove labels
+        kubectl(f'label node {node_name} pvc-node-name-')
 
     @pytest.mark.skipif(
         os.environ.get("STRICT") == "yes",
@@ -309,8 +318,7 @@ class TestAddons(object):
         microk8s_enable("dns")
         microk8s_enable("ingress")
         microk8s_enable("cert-manager")
-        microk8s_enable("metallb:10.64.140.43-10.64.140.49")
-        # microk8s_enable("host-access:ip=100.100.100.100")
+        microk8s_enable("host-access:ip=100.100.100.100")
 
         print("Validating cert-manager")
         validate_cert_manager()
@@ -318,7 +326,7 @@ class TestAddons(object):
         print("Disabling cert-manager")
         microk8s_disable("ingress")
         microk8s_disable("cert-manager")
-        # microk8s_disable("host-access")
+        microk8s_disable("host-access")
 
     def test_minio_addon(self):
         """
